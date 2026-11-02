@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.agents/
+.DS_Store
+node_modules/
+dist/
