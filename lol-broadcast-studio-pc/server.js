@@ -90,7 +90,9 @@ function addLog(msg) {
   const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
   pipelineState.logs.unshift(`[${time}] ${msg}`);
   pipelineState.logs = pipelineState.logs.slice(0, 40);
-  broadcastState();
+  if (typeof wss !== 'undefined' && wss) {
+    broadcastState();
+  }
 }
 
 // ============================================================================
