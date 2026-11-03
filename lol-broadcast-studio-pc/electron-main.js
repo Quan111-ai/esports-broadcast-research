@@ -36,7 +36,7 @@ function createWindow() {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setAlwaysOnTop(false);
       }
-    }, 1000);
+    }, 1200);
   });
 
   mainWindow.on('closed', () => {
@@ -46,7 +46,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  setTimeout(createWindow, 200);
+  setTimeout(createWindow, 250);
 });
 
 app.on('window-all-closed', () => {
