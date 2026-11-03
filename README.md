@@ -7,7 +7,7 @@ Dự án phần mềm điều khiển và phát sóng trực tiếp giải đấ
 
 ---
 
-## Danh mục 14 Tài liệu Thiết kế trong Dự án
+## Danh mục 15 Tài liệu Thiết kế trong Dự án
 
 1. [00_KE_HOACH_TONG_THE.md](./00_KE_HOACH_TONG_THE.md): Kế hoạch tổng thể (Chia để trị 5 mảnh ghép & Bộ 3 công nghệ AI siêu nhẹ).
 2. [01_KICH_BAN_SU_DUNG_THUC_TE.md](./01_KICH_BAN_SU_DUNG_THUC_TE.md): Kịch bản vận hành thực tế từ A đến Z.
@@ -23,3 +23,4 @@ Dự án phần mềm điều khiển và phát sóng trực tiếp giải đấ
 12. [11_CHOT_NEN_TANG_VA_CONG_NGHE_TOI_UU_CHO_DEV.md](./11_CHOT_NEN_TANG_VA_CONG_NGHE_TOI_UU_CHO_DEV.md): Chốt nền tảng (Lõi Windows PC + Điều khiển trên iPad qua Web nội bộ) & Tech Stack.
 13. [12_CHOT_KE_HOACH_NGAY_MAI_BAT_DAU_VOI_LOL.md](./12_CHOT_KE_HOACH_NGAY_MAI_BAT_DAU_VOI_LOL.md): Tổng kết các ý đã chốt hôm nay & Kế hoạch ngày mai bắt đầu với Liên Minh Huyền Thoại (LoL).
 14. [13_LUONG_CHINH_THONG_LOL_RIOT_API_CHI_TIET.md](./13_LUONG_CHINH_THONG_LOL_RIOT_API_CHI_TIET.md): Luồng chính thống 100% của Liên Minh Huyền Thoại (Phân tách rõ API phải xin Riot vs 4 API chính thống có sẵn trong máy Windows làm được ngay).
+15. [14_HE_THONG_TUY_CHINH_CHUAN_DOI_NGU_SAN_XUAT_GIAI_DAU.md](./14_HE_THONG_TUY_CHINH_CHUAN_DOI_NGU_SAN_XUAT_GIAI_DAU.md): Hệ thống tùy chỉnh toàn diện (Customization Engine: Ẩn HUD gốc của game, đè giao diện LCK/VCS/Worlds, Fearless Draft, Fog of War, Góc máy 3D, Stinger chuyển cảnh).
