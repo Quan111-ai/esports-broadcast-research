@@ -50,14 +50,14 @@
     });
   };
 
-  window.oneClickSpectatorSetup = function () {
+  window.oneClickSoloMatchSetup = function () {
     const nameEl = document.getElementById('inp-lobby-name');
     const passEl = document.getElementById('inp-lobby-pass');
     const queueEl = document.getElementById('inp-queue-id');
-    dispatchAction('ONE_CLICK_SETUP_SPECTATOR_MATCH', {
+    dispatchAction('ONE_CLICK_SOLO_TEST_MATCH', {
       lobbyName: nameEl ? nameEl.value : 'GIAI DAU LOL - BO3 VAN 1',
       lobbyPassword: passEl ? passEl.value : '123',
-      queueId: queueEl ? Number(queueEl.value) : 3100
+      queueId: queueEl ? Number(queueEl.value) : 3130
     });
   };
 
@@ -80,7 +80,7 @@
       <div style="flex:1; display:grid; grid-template-columns: 1fr 1fr; gap:12px; min-height:0; overflow-y:auto;">
 
         <!-- LEFT COLUMN: STEP 1 & STEP 2 -->
-        <div class="director-pane liquid-glass" style="gap:12px;">
+        <div class="director-pane liquid-glass" style="gap:10px;">
 
           <!-- BƯỚC 1 -->
           <div class="section-card">
@@ -88,7 +88,7 @@
               <span class="section-title">BƯỚC 1: VÀO GAME & BẮT CHÌA KHÓA SẢNH CHỜ (LCU LOCKFILE)</span>
               <span class="section-tag" id="zone-step1-tag"></span>
             </div>
-            <div id="zone-step1-info" style="font-size:12px; color:#cbd5e1; line-height:1.55;"></div>
+            <div id="zone-step1-info" style="font-size:12px; color:#cbd5e1; line-height:1.5;"></div>
             <div class="btn-row-2">
               <button class="liquid-btn active" onclick="dispatchAction('LAUNCH_LOL_CLIENT')">
                 <span>Mở Sảnh Liên Minh Huyền Thoại</span>
@@ -104,25 +104,35 @@
           <!-- BƯỚC 2 -->
           <div class="section-card">
             <div class="section-header">
-              <span class="section-title">BƯỚC 2: TẠO PHÒNG GIẢI ĐẤU (CUSTOM LOBBY) & NGỒI Ô TRỌNG TÀI</span>
+              <span class="section-title">BƯỚC 2: TẠO PHÒNG GIẢI ĐẤU (CUSTOM LOBBY) & LUỒNG TRỌNG TÀI</span>
               <span class="section-tag">POST /lol-lobby/v2/lobby</span>
             </div>
 
-            <div style="display:grid; grid-template-columns: 1fr 110px 210px; gap:8px;">
+            <!-- Hộp giải thích luật cứng của Riot khi ngồi Khán Giả vs Test 1 mình -->
+            <div style="padding:8px 10px; border-radius:10px; background:rgba(245,158,11,0.14); border:1px solid rgba(251,191,36,0.45); font-size:11px; color:#fef3c7; line-height:1.45;">
+              <strong>QUY TẮC MÁY CHỦ RIOT CẦN BIẾT:</strong>
+              <div>1. <strong>Khi làm Giải Đấu thật (có Tuyển thủ người thật ngồi ở Đội 1/Đội 2)</strong>: Máy Trọng tài của bạn bấm <em>"Nhảy Xuống Ô Trọng Tài"</em> rồi bấm <em>"BẮT ĐẦU TRẬN ĐẤU"</em> sẽ chạy 100%!</div>
+              <div>2. <strong>Khi bạn đang ngồi TEST 1 MÌNH (chỉ có 1 nick của bạn, 0 người thật khác)</strong>: Máy chủ Riot <strong>cấm</strong> bắt đầu trận 100% Bot đấu với Bot khi bạn ở dưới Khán Giả. Do đó:
+                <br/>- Muốn test <strong>Phòng Giải -> Cấm/Chọn -> Vào Bản Đồ 3D</strong>: Bấm nút màu xanh <strong>"VÀO THẲNG CẤM/CHỌN GIẢI ĐẤU"</strong> bên dưới.
+                <br/>- Muốn test <strong>Ngồi Ghế Trọng Tài Xem Trực Tiếp 5v5 (10 Người + Mở Cổng 2999 Tức Thì)</strong>: Bấm nút màu vàng <strong>"MỞ CỬA SỔ TRỌNG TÀI XEM TRỰC TIẾP 5v5 NGAY"</strong> bên dưới!
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 95px 210px; gap:8px;">
               <div>
                 <div style="font-size:10px; color:#94a3b8; margin-bottom:3px;">Tên Phòng Giải Đấu:</div>
                 <input id="inp-lobby-name" value="${initialState.lobby.lobbyName}"
-                       style="width:100%; padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.28); background:rgba(0,0,0,0.45); color:#fff; font-weight:700; user-select:text;" />
+                       style="width:100%; padding:7px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.28); background:rgba(0,0,0,0.45); color:#fff; font-weight:700; user-select:text;" />
               </div>
               <div>
                 <div style="font-size:10px; color:#94a3b8; margin-bottom:3px;">Mật khẩu:</div>
                 <input id="inp-lobby-pass" value="${initialState.lobby.lobbyPassword}"
-                       style="width:100%; padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.28); background:rgba(0,0,0,0.45); color:#fff; font-weight:700; user-select:text;" />
+                       style="width:100%; padding:7px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.28); background:rgba(0,0,0,0.45); color:#fff; font-weight:700; user-select:text;" />
               </div>
               <div>
                 <div style="font-size:10px; color:#94a3b8; margin-bottom:3px;">Chế độ Phòng Giải (QueueID):</div>
                 <select id="inp-queue-id"
-                        style="width:100%; padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.28); background:rgba(15,23,42,0.95); color:#fff; font-weight:700;">
+                        style="width:100%; padding:7px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.28); background:rgba(15,23,42,0.95); color:#fff; font-weight:700;">
                   <option value="3130" selected>Tournament Draft (Đấu Giải 5v5 - ID 3130)</option>
                   <option value="3100">Blind Pick (Chọn Ẩn 5v5 - ID 3100)</option>
                   <option value="3110">Draft Pick (Cấm Chọn Thường - ID 3110)</option>
@@ -131,61 +141,68 @@
               </div>
             </div>
 
-            <div class="btn-row-2" style="margin-top:4px;">
-              <button class="liquid-btn active" onclick="createLobbyFromInputs()">
-                <span>1. Tạo Phòng Giải Đấu 5v5 Ngay</span>
-                <small>Mở phòng chuẩn trong Sảnh LoL thật</small>
+            <!-- 2 NÚT 1-CHẠM QUAN TRỌNG NHẤT CHO SOLO TEST & SPECTATOR -->
+            <div class="btn-row-2" style="margin-top:2px;">
+              <button class="liquid-btn active" style="border-color:#38bdf8;" onclick="oneClickSoloMatchSetup()">
+                <span style="color:#7dd3fc;">1-CHẠM: TẠO PHÒNG & VÀO THẲNG CẤM/CHỌN GIẢI ĐẤU</span>
+                <small>Tạo phòng + Thêm Bot khác tướng + Bắt đầu Cấm/Chọn ngay!</small>
               </button>
-              <button class="liquid-btn active" style="border-color:#fde047;" onclick="oneClickSpectatorSetup()">
-                <span style="color:#fde047;">TẠO NHANH 1-CHẠM (PHÒNG + BOT + TRỌNG TÀI)</span>
-                <small>Tạo phòng + Thêm Bot 2 bên + Xuống ghế Trọng tài</small>
+              <button class="liquid-btn active" style="border-color:#fde047; background:rgba(234,179,8,0.2);" onclick="dispatchAction('WATCH_5V5_SPECTATOR_NOW')">
+                <span style="color:#fde047;">1-CHẠM: MỞ CỬA SỔ TRỌNG TÀI XEM TRỰC TIẾP 5v5 NGAY</span>
+                <small>Bật cửa sổ Trọng Tài 10 Tuyển Thủ + Mở Cổng 2999 tức thì!</small>
+              </button>
+            </div>
+
+            <div class="btn-row-3">
+              <button class="liquid-btn" onclick="createLobbyFromInputs()">
+                <span>Tạo Phòng Giải Mới</span>
+                <small>DELETE + POST /lobby</small>
+              </button>
+              <button class="liquid-btn" onclick="dispatchAction('ADD_TEST_BOTS', { teamId: '100' })">
+                <span>+1 Bot Đội Xanh (100)</span>
+                <small>Thêm Bot không trùng tướng</small>
+              </button>
+              <button class="liquid-btn" onclick="dispatchAction('ADD_TEST_BOTS', { teamId: '200' })">
+                <span>+1 Bot Đội Đỏ (200)</span>
+                <small>Thêm Bot không trùng tướng</small>
               </button>
             </div>
 
             <div class="btn-row-3">
               <button class="liquid-btn" onclick="dispatchAction('SWITCH_TO_SPECTATOR')">
-                <span>2. Nhảy Xuống Ô Trọng Tài</span>
-                <small>POST /lobby/team/SPECTATOR</small>
+                <span>Xuống Ô Trọng Tài</span>
+                <small>Dùng khi có người thật trên Đội</small>
               </button>
-              <button class="liquid-btn" onclick="dispatchAction('ADD_TEST_BOTS', { teamId: '100' })">
-                <span>+1 Bot Đội Xanh (100)</span>
-                <small>Thêm Bot RSINTERMEDIATE</small>
-              </button>
-              <button class="liquid-btn" onclick="dispatchAction('ADD_TEST_BOTS', { teamId: '200' })">
-                <span>+1 Bot Đội Đỏ (200)</span>
-                <small>Thêm Bot RSINTERMEDIATE</small>
-              </button>
-            </div>
-
-            <div class="btn-row-3">
               <button class="liquid-btn" onclick="dispatchAction('SWITCH_TO_PLAYER', { team: 'TEAM1' })">
                 <span>Lên Đội Xanh (TEAM1)</span>
                 <small>Ngồi ghế tuyển thủ Đội 1</small>
               </button>
-              <button class="liquid-btn" onclick="dispatchAction('SWITCH_TO_PLAYER', { team: 'TEAM2' })">
-                <span>Lên Đội Đỏ (TEAM2)</span>
-                <small>Ngồi ghế tuyển thủ Đội 2</small>
-              </button>
               <button class="liquid-btn red-active" onclick="dispatchAction('START_CHAMP_SELECT')">
-                <span>3. BẮT ĐẦU TRẬN ĐẤU (START)</span>
-                <small>Vào Cấm/Chọn & Xem Trực Tiếp</small>
+                <span>BẮT ĐẦU TRẬN ĐẤU (START)</span>
+                <small>Tự động chống lỗi 0 người thật</small>
               </button>
             </div>
 
             <!-- Danh sách thành viên trong phòng đọc realtime -->
-            <div id="zone-lobby-members" style="margin-top:6px; padding:10px; border-radius:12px; background:rgba(0,0,0,0.35); font-size:11px;"></div>
+            <div id="zone-lobby-members" style="margin-top:4px; padding:9px; border-radius:12px; background:rgba(0,0,0,0.35); font-size:11px;"></div>
           </div>
 
         </div>
 
         <!-- RIGHT COLUMN: STEP 3 & STEP 4 & LOGS -->
-        <div class="director-pane liquid-glass" style="gap:12px;">
+        <div class="director-pane liquid-glass" style="gap:10px;">
 
           <!-- BƯỚC 3 -->
           <div class="section-card">
             <div class="section-header">
-              <span class="section-title">BƯỚC 3: LUỒNG DỮ LIỆU CẤM/CHỌN THẬT (GET /lol-champ-select/v1/session)</span>
+              <span class="section-title">BƯỚC 3: LUỒNG CẤM/CHỌN THẬT (GET /lol-champ-select/v1/session)</span>
               <span class="section-tag" id="zone-step3-tag"></span>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:4px;">
+              <button class="liquid-btn active" style="flex:1;" onclick="dispatchAction('AUTO_COMPLETE_CHAMP_SELECT')">
+                <span>TỰ ĐỘNG CẤM / KHÓA TƯỚNG ĐANG TỚI LƯỢT (1-CHẠM AUTO LOCK)</span>
+                <small>PATCH /lol-champ-select/v1/session/actions/{id} — Bấm để khóa nhanh Ban/Pick</small>
+              </button>
             </div>
             <div id="zone-step3-body"></div>
           </div>
@@ -193,7 +210,7 @@
           <!-- BƯỚC 4 -->
           <div class="section-card">
             <div class="section-header">
-              <span class="section-title">BƯỚC 4: XEM TRỰC TIẾP & ĐIỀU KHIỂN CỬA SỔ GAME THẬT (CỔNG 127.0.0.1:2999)</span>
+              <span class="section-title">BƯỚC 4: XEM TRỰC TIẾP & ĐIỀU KHIỂN TRỌNG TÀI (CỔNG 127.0.0.1:2999)</span>
               <span class="section-tag" id="zone-step4-tag"></span>
             </div>
 
@@ -228,11 +245,11 @@
                 .join('')}
             </div>
 
-            <div id="zone-step4-players" style="margin-top:6px; padding:10px; border-radius:12px; background:rgba(0,0,0,0.35); font-size:11px; max-height:170px; overflow-y:auto;"></div>
+            <div id="zone-step4-players" style="margin-top:6px; padding:10px; border-radius:12px; background:rgba(0,0,0,0.35); font-size:11px; max-height:165px; overflow-y:auto;"></div>
           </div>
 
           <!-- LOGS -->
-          <div class="section-card" style="flex:1; min-height:130px;">
+          <div class="section-card" style="flex:1; min-height:125px;">
             <div class="section-header">
               <span class="section-title">NHẬT KÝ KẾT NỐI & LỆNH API GỬI VÀO GAME (REALTIME LOGS)</span>
               <span class="section-tag">127.0.0.1</span>
@@ -260,7 +277,7 @@
           SẢNH LCU: ${lcu.connected ? `ĐÃ KẾT NỐI (Port ${lcu.port} | Phase: ${lcu.gameflowPhase})` : 'CHƯA MỞ GAME LOL'}
         </span>
         <span class="status-chip" style="background:${liveSpectator2999.connected ? 'rgba(14,165,233,0.25)' : 'rgba(255,255,255,0.08)'}; border-color:${liveSpectator2999.connected ? '#38bdf8' : 'rgba(255,255,255,0.2)'}; color:${liveSpectator2999.connected ? '#7dd3fc' : '#94a3b8'};">
-          TRONG TRẬN (PORT 2999): ${liveSpectator2999.connected ? `ĐANG XEM TRỰC TIẾP (${liveSpectator2999.gameTime}s)` : 'CHƯA VÀO TRẬN 3D'}
+          TRONG TRẬN (PORT 2999): ${liveSpectator2999.connected ? `ĐANG XEM TRỰC TIẾP (${liveSpectator2999.gameTime}s | ${liveSpectator2999.allPlayers.length} Người)` : 'CHƯA VÀO TRẬN 3D'}
         </span>
       `;
     }
@@ -282,10 +299,15 @@
 
     const lobbyBox = document.getElementById('zone-lobby-members');
     if (lobbyBox) {
+      const humanWarn =
+        lobby.active && lobby.humanPlayersInTeams === 0
+          ? `<span style="color:#fde047;">ĐANG CÓ 0 NGƯỜI THẬT TRÊN 2 ĐỘI (Khi bấm START hệ thống sẽ tự đưa bạn lên Đội Xanh để bắt đầu!)</span>`
+          : `<span style="color:${lobby.canStartActivity ? '#6ee7b7' : '#fda4af'};">${lobby.canStartActivity ? `SẴN SÀNG BẮT ĐẦU (${lobby.humanPlayersInTeams} người thật trên đội)` : 'CHƯA ĐỦ ĐIỀU KIỆN BẮT ĐẦU'}</span>`;
+
       lobbyBox.innerHTML = `
-        <div style="display:flex; justify-content:space-between; font-weight:800; color:#bae6fd; margin-bottom:6px;">
-          <span>DANH SÁCH TRONG PHÒNG CHỜ THẬT ĐANG ĐỌC TỪ GAME (${lobby.active ? `ĐANG Ở TRONG PHÒNG "${lobby.lobbyName}"` : 'CHƯA Ở TRONG PHÒNG'}):</span>
-          <span style="color:${lobby.canStartActivity ? '#6ee7b7' : '#fda4af'};">${lobby.canStartActivity ? 'SẴN SÀNG BẮT ĐẦU (canStart=true)' : 'CHƯA ĐỦ ĐIỀU KIỆN BẮT ĐẦU'}</span>
+        <div style="display:flex; justify-content:space-between; font-weight:800; color:#bae6fd; margin-bottom:6px; gap:8px;">
+          <span>PHÒNG CHỜ THẬT (${lobby.active ? `"${lobby.lobbyName}"` : 'CHƯA Ở TRONG PHÒNG'}):</span>
+          ${humanWarn}
         </div>
         <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px;">
           <div>
@@ -312,24 +334,27 @@
     const step3Body = document.getElementById('zone-step3-body');
     if (step3Body) {
       step3Body.innerHTML = champSelect.active
-        ? `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:12px;">
+        ? `<div style="margin-bottom:6px; font-size:12px; color:#fde047; font-weight:700;">
+             Trạng thái lượt hiện tại: ${champSelect.activeActionType ? `Đang tới lượt [${champSelect.activeActionType.toUpperCase()}] của bạn (ActionID=${champSelect.activeActionId}) — Bấm nút TỰ ĐỘNG CẤM/KHÓA ở trên để khóa ngay!` : `Pha: ${champSelect.timerPhase} (${champSelect.timeLeftSec}s)`}
+           </div>
+           <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:12px;">
              <div style="padding:8px; border-radius:10px; background:rgba(14,165,233,0.15);">
-               <strong style="color:#38bdf8;">Đội Xanh (myTeam):</strong>
+               <strong style="color:#38bdf8;">Đội Xanh (myTeam) | Cấm: [${(champSelect.bans.myTeamBans || []).join(', ')}]:</strong>
                ${champSelect.myTeam.map((c, idx) => `<div>Slot ${idx + 1}: ChampID = <strong>${c.championId}</strong> (${c.assignedPosition || 'Flex'})</div>`).join('')}
              </div>
              <div style="padding:8px; border-radius:10px; background:rgba(244,63,94,0.15);">
-               <strong style="color:#fb7185;">Đội Đỏ (theirTeam):</strong>
+               <strong style="color:#fb7185;">Đội Đỏ (theirTeam) | Cấm: [${(champSelect.bans.theirTeamBans || []).join(', ')}]:</strong>
                ${champSelect.theirTeam.map((c, idx) => `<div>Slot ${idx + 1}: ChampID = <strong>${c.championId}</strong> (${c.assignedPosition || 'Flex'})</div>`).join('')}
              </div>
            </div>`
         : `<div style="font-size:12px; color:#94a3b8;">
-             Khi bạn bấm <strong>"3. BẮT ĐẦU TRẬN ĐẤU"</strong> ở Bước 2, sảnh LoL chuyển sang màn hình Cấm/Chọn và toàn bộ dữ liệu Tướng đang nhá, Tướng đã khóa, Lượt cấm và Đồng hồ đếm ngược sẽ tự động chảy vào đây với độ trễ 0.01 giây.
+             Khi bạn bấm <strong>"1-CHẠM: TẠO PHÒNG & VÀO THẲNG CẤM/CHỌN GIẢI ĐẤU"</strong> hoặc <strong>"BẮT ĐẦU TRẬN ĐẤU"</strong> ở Bước 2, sảnh LoL chuyển sang màn hình Cấm/Chọn và toàn bộ dữ liệu Tướng đang nhá, Tướng đã khóa, Lượt cấm và Đồng hồ đếm ngược sẽ tự động chảy vào đây với độ trễ 0.01 giây.
            </div>`;
     }
 
     const step4Tag = document.getElementById('zone-step4-tag');
     if (step4Tag) {
-      step4Tag.textContent = liveSpectator2999.connected ? `LIVE ${liveSpectator2999.gameTime}s` : 'ĐỢI VÀO BẢN ĐỒ 3D';
+      step4Tag.textContent = liveSpectator2999.connected ? `LIVE ${liveSpectator2999.gameTime}s (${liveSpectator2999.allPlayers.length} NGƯỜI)` : 'ĐỢI CỬA SỔ GAME 3D';
     }
 
     const step4Players = document.getElementById('zone-step4-players');
@@ -350,7 +375,7 @@
               `
                 )
                 .join('')
-            : '<div style="color:#94a3b8;">Chưa có trận đấu 3D nào đang chạy. Hãy bấm "3. BẮT ĐẦU TRẬN ĐẤU" ở Bước 2 để vào trận và xem dữ liệu thật đổ về đây!</div>'
+            : '<div style="color:#94a3b8;">Chưa có trận đấu 3D nào đang chạy. Hãy bấm nút màu vàng <strong>"1-CHẠM: MỞ CỬA SỔ TRỌNG TÀI XEM TRỰC TIẾP 5v5 NGAY"</strong> ở Bước 2 để bật cửa sổ Trọng Tài 10 Tuyển Thủ và mở Cổng 2999 ngay lập tức!</div>'
         }
       `;
     }

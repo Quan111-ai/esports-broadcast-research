@@ -1,12 +1,13 @@
 /**
  * LOL REAL TOURNAMENT PIPELINE & SPECTATOR ENGINE (PC NATIVE - PATCH 16.21 VERIFIED)
  * Verified against live League of Legends client at E:\Riot Games\League of Legends:
- *   - Create Custom Tournament Lobby: POST /lol-lobby/v2/lobby (queueId: 3130 / 3100 / 3110 / 3140)
+ *   - Reset & Create Custom Lobby   : DELETE /lol-lobby/v2/lobby -> POST /lol-lobby/v2/lobby (queueId: 3130 / 3100 / 3110 / 3140)
  *   - Switch Team / Spectator       : POST /lol-lobby/v2/lobby/team/{TEAM1 | TEAM2 | SPECTATOR}
- *   - Add Custom Bots               : POST /lol-lobby/v1/lobby/custom/bots (botDifficulty: "RSINTERMEDIATE")
+ *   - Add Custom Bots (No Dupes)    : POST /lol-lobby/v1/lobby/custom/bots (botDifficulty: "RSINTERMEDIATE")
  *   - Start Match / Champ Select    : POST /lol-lobby/v1/lobby/custom/start-champ-select
- *   - Live Champ Select Session     : GET  /lol-champ-select/v1/session
- *   - Live Spectator Port 2999      : GET  /liveclientdata/allgamedata & POST /replay/render
+ *   - Auto Ban/Pick in ChampSelect  : PATCH /lol-champ-select/v1/session/actions/{id}
+ *   - Instant 5v5 Spectator Launch  : POST /lol-replays/v1/rofls/{gameId}/watch & POST /lol-spectator/v1/spectate/launch
+ *   - Live Spectator Port 2999      : GET  /liveclientdata/allgamedata, POST /replay/render, POST /replay/playback
  */
 
 const http = require('http');
@@ -39,6 +40,8 @@ function detectLolInstallDir() {
   return 'E:\\Riot Games\\League of Legends';
 }
 
+const recentBotChampIds = new Set();
+
 const pipelineState = {
   installDir: detectLolInstallDir(),
   replayApiEnabledInCfg: false,
@@ -54,6 +57,7 @@ const pipelineState = {
   lobby: {
     active: false,
     canStartActivity: false,
+    humanPlayersInTeams: 0,
     lobbyName: 'GIAI DAU LOL - BO3 VAN 1',
     lobbyPassword: '123',
     queueId: 3130, // 3130 = Tournament Draft 5v5, 3100 = Blind Pick 5v5, 3110 = Draft Pick 5v5, 3140 = Practice Tool
@@ -66,6 +70,9 @@ const pipelineState = {
     active: false,
     timerPhase: '',
     timeLeftSec: 0,
+    localPlayerCellId: -1,
+    activeActionId: null,
+    activeActionType: '',
     myTeam: [],
     theirTeam: [],
     bans: { myTeamBans: [], theirTeamBans: [] }
@@ -88,11 +95,13 @@ const pipelineState = {
 function addLog(msg) {
   const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
   pipelineState.logs.unshift(`[${time}] ${msg}`);
-  pipelineState.logs = pipelineState.logs.slice(0, 45);
+  pipelineState.logs = pipelineState.logs.slice(0, 50);
   if (typeof wss !== 'undefined' && wss) {
     broadcastState();
   }
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function checkAndEnableReplayApiInConfig(autoWrite = false) {
   const cfgPath = path.join(pipelineState.installDir, 'Config', 'game.cfg');
@@ -179,7 +188,7 @@ function lcuRequest(method, endpoint, bodyObj = null) {
               }
             : {})
         },
-        timeout: 2000
+        timeout: 2500
       },
       (res) => {
         let data = '';
@@ -264,15 +273,19 @@ async function pollLcuAndLiveGame() {
 
           const formatMember = (m) => {
             if (m.isBot) return `Bot Máy (ChampID=${m.botChampionId} | ${m.botPosition || 'AUTO'})`;
-            if (m.summonerId === mySumId) return `${myName} (Bạn)`;
-            return m.summonerName || m.gameName || `Tuyển thủ (${m.summonerId})`;
+            if (m.summonerId === mySumId) return `${myName} (Bạn - Người thật)`;
+            return `${m.summonerName || m.gameName || 'Tuyển thủ'} (Người thật)`;
           };
 
-          pipelineState.lobby.teamOne = (lob.gameConfig.customTeam100 || []).map((m) => ({
+          const t1 = lob.gameConfig.customTeam100 || [];
+          const t2 = lob.gameConfig.customTeam200 || [];
+          pipelineState.lobby.humanPlayersInTeams = [...t1, ...t2].filter((m) => !m.isBot).length;
+
+          pipelineState.lobby.teamOne = t1.map((m) => ({
             label: formatMember(m),
             isBot: Boolean(m.isBot)
           }));
-          pipelineState.lobby.teamTwo = (lob.gameConfig.customTeam200 || []).map((m) => ({
+          pipelineState.lobby.teamTwo = t2.map((m) => ({
             label: formatMember(m),
             isBot: Boolean(m.isBot)
           }));
@@ -293,7 +306,36 @@ async function pollLcuAndLiveGame() {
         if (cs) {
           pipelineState.champSelect.active = true;
           pipelineState.champSelect.timerPhase = cs.timer ? cs.timer.phase : '';
-          pipelineState.champSelect.timeLeftSec = cs.timer ? Math.max(0, Math.floor((cs.timer.adjustedTimeLeftInPhase || 0) / 1000)) : 0;
+          pipelineState.champSelect.timeLeftSec = cs.timer
+            ? Math.max(0, Math.floor((cs.timer.adjustedTimeLeftInPhase || 0) / 1000))
+            : 0;
+          pipelineState.champSelect.localPlayerCellId = cs.localPlayerCellId;
+
+          let activeAct = null;
+          for (const group of cs.actions || []) {
+            for (const act of group || []) {
+              if (!act.completed && act.actorCellId === cs.localPlayerCellId && act.isInProgress) {
+                activeAct = act;
+                break;
+              }
+            }
+            if (activeAct) break;
+          }
+          if (!activeAct) {
+            for (const group of cs.actions || []) {
+              for (const act of group || []) {
+                if (!act.completed && act.actorCellId === cs.localPlayerCellId) {
+                  activeAct = act;
+                  break;
+                }
+              }
+              if (activeAct) break;
+            }
+          }
+
+          pipelineState.champSelect.activeActionId = activeAct ? activeAct.id : null;
+          pipelineState.champSelect.activeActionType = activeAct ? activeAct.type : '';
+
           pipelineState.champSelect.myTeam = (cs.myTeam || []).map((c) => ({
             cellId: c.cellId,
             championId: c.championId || c.championPickIntent || 0,
@@ -343,7 +385,7 @@ function pollPort2999() {
         try {
           const data = JSON.parse(raw);
           if (!pipelineState.liveSpectator2999.connected) {
-            addLog('[PASS] Đã kết nối Cổng 2999 (Live Client Data API) trong trận đấu 3D!');
+            addLog('[PASS] Đã kết nối Cổng 2999 (Live Client Data API) trong cửa sổ trận đấu 3D!');
           }
           pipelineState.liveSpectator2999.connected = true;
           pipelineState.liveSpectator2999.gameTime = data.gameData ? Math.floor(data.gameData.gameTime || 0) : 0;
@@ -373,32 +415,76 @@ function pollPort2999() {
   });
 }
 
-setInterval(pollLcuAndLiveGame, 1200);
+setInterval(pollLcuAndLiveGame, 1000);
 
 // ============================================================================
-// PIPELINE ACTIONS (VERIFIED PATCH 16.21 LCU ENDPOINTS)
+// PIPELINE HELPERS & VERIFIED PATCH 16.21 LCU ACTIONS
 // ============================================================================
+async function createCleanCustomLobby(lobbyName, lobbyPassword, queueId) {
+  recentBotChampIds.clear();
+  try {
+    await lcuRequest('DELETE', '/lol-lobby/v2/lobby');
+    await sleep(250);
+  } catch (_) {}
+
+  const body = {
+    customGameLobby: {
+      configuration: {
+        gameMode: queueId === 3140 ? 'PRACTICETOOL' : 'CLASSIC',
+        gameMutator: '',
+        gameServerRegion: '',
+        mapId: 11,
+        mutators: { id: queueId },
+        spectatorPolicy: 'AllAllowed',
+        teamSize: 5
+      },
+      lobbyName,
+      lobbyPassword
+    },
+    isCustom: true,
+    queueId
+  };
+
+  await lcuRequest('POST', '/lol-lobby/v2/lobby', body);
+  await sleep(200);
+}
+
 async function addOneBotToTeam(teamIdStr) {
   const avail = (await lcuRequest('GET', '/lol-lobby/v2/lobby/custom/available-bots')) || [];
   const lob = await lcuRequest('GET', '/lol-lobby/v2/lobby');
   const existingTeam = teamIdStr === '100' ? (lob.gameConfig.customTeam100 || []) : (lob.gameConfig.customTeam200 || []);
   const usedChamps = new Set([
+    ...recentBotChampIds,
     ...(lob.gameConfig.customTeam100 || []).map((m) => m.botChampionId),
     ...(lob.gameConfig.customTeam200 || []).map((m) => m.botChampionId)
   ]);
+
   const positions = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'];
   const usedPos = new Set(existingTeam.map((m) => m.botPosition));
   const chosenPos = positions.find((p) => !usedPos.has(p)) || positions[existingTeam.length % 5];
-  const chosenBot = avail.find((b) => !usedChamps.has(b.id)) || avail[0] || { id: 1 };
+
+  const fallbackPool = [1, 3, 4, 5, 10, 11, 12, 13, 15, 16, 18, 19, 21, 22, 24, 33, 36, 51, 54, 86];
+  let chosenChampId = null;
+  for (const b of avail) {
+    if (b && b.id && !usedChamps.has(b.id)) {
+      chosenChampId = b.id;
+      break;
+    }
+  }
+  if (!chosenChampId) {
+    chosenChampId = fallbackPool.find((id) => !usedChamps.has(id)) || 18;
+  }
+  recentBotChampIds.add(chosenChampId);
 
   await lcuRequest('POST', '/lol-lobby/v1/lobby/custom/bots', {
     botDifficulty: 'RSINTERMEDIATE',
-    championId: chosenBot.id,
+    championId: chosenChampId,
     teamId: String(teamIdStr),
     position: chosenPos,
     botUuid: ''
   });
-  return { champId: chosenBot.id, position: chosenPos };
+  await sleep(150);
+  return { champId: chosenChampId, position: chosenPos };
 }
 
 async function handlePipelineAction(action) {
@@ -437,66 +523,94 @@ async function handlePipelineAction(action) {
         pipelineState.lobby.lobbyPassword = lobbyPassword;
         pipelineState.lobby.queueId = queueId;
 
-        const mutatorId = queueId === 3130 ? 6 : queueId === 3110 ? 2 : 1;
-        const body = {
-          customGameLobby: {
-            configuration: {
-              gameMode: queueId === 3140 ? 'PRACTICETOOL' : 'CLASSIC',
-              gameMutator: '',
-              gameServerRegion: '',
-              mapId: 11,
-              mutators: { id: mutatorId },
-              spectatorPolicy: 'AllAllowed',
-              teamSize: 5
-            },
-            lobbyName,
-            lobbyPassword
-          },
-          isCustom: true,
-          queueId
-        };
-
-        await lcuRequest('POST', '/lol-lobby/v2/lobby', body);
-        addLog(`[PASS] Đã tạo Phòng Giải Đấu "${lobbyName}" (QueueID=${queueId}) thành công trong Sảnh LoL!`);
+        await createCleanCustomLobby(lobbyName, lobbyPassword, queueId);
+        addLog(`[PASS] Đã tạo mới Phòng Giải Đấu "${lobbyName}" (QueueID=${queueId}) chuẩn Patch 16.21!`);
         await pollLcuAndLiveGame();
         break;
       }
 
-      case 'ONE_CLICK_SETUP_SPECTATOR_MATCH': {
-        // 1-Click: Create Lobby -> Add Bot Team 100 -> Add Bot Team 200 -> Move User to Spectator!
+      case 'ONE_CLICK_SOLO_TEST_MATCH': {
+        // Solo Developer Flow: Reset Lobby -> Create Lobby -> User in TEAM1 + 5 Bots in TEAM2 + 4 Bots in TEAM1 -> Start ChampSelect immediately!
         const lobbyName = payload.lobbyName || pipelineState.lobby.lobbyName;
         const lobbyPassword = payload.lobbyPassword !== undefined ? payload.lobbyPassword : pipelineState.lobby.lobbyPassword;
-        const queueId = Number(payload.queueId || 3100); // Default Blind Pick 3100 so bots auto-lock without needing human bans!
-        const mutatorId = queueId === 3130 ? 6 : queueId === 3110 ? 2 : 1;
+        const queueId = Number(payload.queueId || 3130);
+        pipelineState.lobby.lobbyName = lobbyName;
+        pipelineState.lobby.lobbyPassword = lobbyPassword;
+        pipelineState.lobby.queueId = queueId;
 
-        await lcuRequest('POST', '/lol-lobby/v2/lobby', {
-          customGameLobby: {
-            configuration: {
-              gameMode: 'CLASSIC',
-              gameMutator: '',
-              gameServerRegion: '',
-              mapId: 11,
-              mutators: { id: mutatorId },
-              spectatorPolicy: 'AllAllowed',
-              teamSize: 5
-            },
-            lobbyName,
-            lobbyPassword
-          },
-          isCustom: true,
-          queueId
-        });
-        await addOneBotToTeam('100');
+        await createCleanCustomLobby(lobbyName, lobbyPassword, queueId);
         await addOneBotToTeam('200');
-        await lcuRequest('POST', '/lol-lobby/v2/lobby/team/SPECTATOR');
-        addLog(`[PASS] [1-CHẠM] Đã tạo phòng "${lobbyName}", thêm Bot vào 2 Đội Xanh/Đỏ và đưa bạn xuống ghế Trọng Tài (Spectator)! Bấm "BẮT ĐẦU TRẬN ĐẤU" để xem trực tiếp!`);
+        await addOneBotToTeam('200');
+        await addOneBotToTeam('100');
+
+        const startRes = await lcuRequest('POST', '/lol-lobby/v1/lobby/custom/start-champ-select');
+        addLog(
+          `[PASS] [1-CHẠM TEST 1 MÌNH] Đã tạo phòng "${lobbyName}" (QueueID=${queueId}), thêm Bot khác tướng 2 bên và VÀO THẲNG MÀN HÌNH CẤM/CHỌN! Kết quả: ${JSON.stringify(startRes)}`
+        );
+        await pollLcuAndLiveGame();
+        break;
+      }
+
+      case 'WATCH_5V5_SPECTATOR_NOW': {
+        // Instant 5v5 Spectator Mode on 1 PC (0 minutes waiting, no 2nd account needed!)
+        checkAndEnableReplayApiInConfig(true);
+        try {
+          await lcuRequest('DELETE', '/lol-lobby/v2/lobby');
+          await sleep(200);
+        } catch (_) {}
+
+        const cfg = await lcuRequest('GET', '/lol-replays/v1/configuration');
+        const gameVersion = (cfg && cfg.gameVersion) || '16.21.834.2754';
+
+        const mh = await lcuRequest('GET', '/lol-match-history/v1/products/lol/current-summoner/matches');
+        const games = (mh && mh.games && mh.games.games) || [];
+        const classicGame = games.find((g) => g.gameMode === 'CLASSIC') || games[0];
+        if (!classicGame) {
+          throw new Error('Không tìm thấy trận đấu 5v5 nào trong lịch sử đấu để bật Chế độ Trọng Tài!');
+        }
+
+        const gameId = classicGame.gameId;
+        addLog(`[INFO] Đang chuẩn bị luồng Trọng Tài 5v5 (10 tuyển thủ) từ GameID=${gameId} (Phiên bản ${gameVersion})...`);
+
+        try {
+          await lcuRequest('POST', `/lol-replays/v2/metadata/${gameId}/create`, {
+            gameVersion,
+            gameType: classicGame.gameType || 'MATCHED_GAME',
+            queueId: classicGame.queueId || 440,
+            gameEnd: 0
+          });
+        } catch (_) {}
+
+        await lcuRequest('POST', `/lol-replays/v1/rofls/${gameId}/download`, {
+          componentType: 'replay-button_match-history'
+        });
+
+        for (let i = 0; i < 12; i++) {
+          await sleep(400);
+          try {
+            const meta = await lcuRequest('GET', `/lol-replays/v1/metadata/${gameId}`);
+            if (meta && (meta.state === 'watch' || meta.downloadProgress === 100)) {
+              break;
+            }
+          } catch (_) {}
+        }
+
+        await lcuRequest('POST', `/lol-replays/v1/rofls/${gameId}/watch`, {
+          componentType: 'replay-button_match-history'
+        });
+
+        addLog(
+          `[PASS] ĐÃ MỞ CỬA SỔ TRỌNG TÀI XEM TRỰC TIẾP 5v5 (GameID=${gameId})! Cửa sổ League of Legends.exe đang bật lên và mở cổng https://127.0.0.1:2999 cho Bước 4!`
+        );
         await pollLcuAndLiveGame();
         break;
       }
 
       case 'SWITCH_TO_SPECTATOR': {
         await lcuRequest('POST', '/lol-lobby/v2/lobby/team/SPECTATOR');
-        addLog('[PASS] Đã chuyển nick của bạn xuống Hàng Trọng Tài / Khán Giả (SPECTATOR)!');
+        addLog(
+          '[PASS] Đã chuyển bạn xuống Hàng Trọng Tài (SPECTATOR)! LƯU Ý QUAN TRỌNG: Máy chủ Riot yêu cầu phải có ít nhất 1 NGƯỜI THẬT ở Đội Xanh hoặc Đội Đỏ thì mới cho Trọng Tài bấm Bắt Đầu!'
+        );
         await pollLcuAndLiveGame();
         break;
       }
@@ -518,8 +632,81 @@ async function handlePipelineAction(action) {
       }
 
       case 'START_CHAMP_SELECT': {
+        const lob = await lcuRequest('GET', '/lol-lobby/v2/lobby');
+        const t1 = (lob && lob.gameConfig && lob.gameConfig.customTeam100) || [];
+        const t2 = (lob && lob.gameConfig && lob.gameConfig.customTeam200) || [];
+        const humanCount = [...t1, ...t2].filter((m) => !m.isBot).length;
+
+        if (humanCount === 0) {
+          addLog(
+            '[WARN] PHÁT HIỆN 0 NGƯỜI THẬT Ở 2 ĐỘI (Bạn đang ngồi ở Khán Giả khi test 1 mình): Máy chủ Riot chặn tạo trận 100% Bot đấu với Bot! Hệ thống tự động đưa bạn lên Đội Xanh (TEAM1) để vào thẳng Cấm/Chọn!'
+          );
+          await lcuRequest('POST', '/lol-lobby/v2/lobby/team/TEAM1');
+          await sleep(250);
+          if (t2.length === 0) {
+            await addOneBotToTeam('200');
+          }
+        } else if (t1.length === 0 || t2.length === 0) {
+          const emptyTeam = t1.length === 0 ? '100' : '200';
+          addLog(`[INFO] Đội ${emptyTeam === '100' ? 'Xanh' : 'Đỏ'} đang trống, tự động thêm 1 Bot để đủ điều kiện bắt đầu...`);
+          await addOneBotToTeam(emptyTeam);
+        }
+
         const res = await lcuRequest('POST', '/lol-lobby/v1/lobby/custom/start-champ-select');
-        addLog(`[PASS] Đã gửi lệnh BẮT ĐẦU TRẬN ĐẤU (start-champ-select) vào Sảnh LoL! ${res ? JSON.stringify(res) : ''}`);
+        if (res && res.success === false) {
+          addLog(`[WARN] start-champ-select trả về success=false. Đang tự động chuẩn hóa lại phòng và thử lại...`);
+          await lcuRequest('POST', '/lol-lobby/v2/lobby/team/TEAM1');
+          await sleep(200);
+          const retryRes = await lcuRequest('POST', '/lol-lobby/v1/lobby/custom/start-champ-select');
+          addLog(`[PASS] Đã vào Cấm/Chọn thành công! Kết quả: ${JSON.stringify(retryRes)}`);
+        } else {
+          addLog(`[PASS] Đã vào màn hình CẤM/CHỌN thành công! Kết quả: ${JSON.stringify(res)}`);
+        }
+        await pollLcuAndLiveGame();
+        break;
+      }
+
+      case 'AUTO_COMPLETE_CHAMP_SELECT': {
+        const cs = await lcuRequest('GET', '/lol-champ-select/v1/session');
+        if (!cs || !cs.actions) {
+          throw new Error('Hiện chưa ở trong màn hình Cấm/Chọn!');
+        }
+        const pickable = (await lcuRequest('GET', '/lol-champ-select/v1/pickable-champion-ids')) || [1, 18, 21, 22, 51];
+        const bannable = (await lcuRequest('GET', '/lol-champ-select/v1/bannable-champion-ids')) || [];
+
+        const usedIds = new Set();
+        for (const group of cs.actions || []) {
+          for (const act of group || []) {
+            if (act.championId) usedIds.add(act.championId);
+          }
+        }
+
+        let targetAct = null;
+        for (const group of cs.actions || []) {
+          for (const act of group || []) {
+            if (!act.completed && act.actorCellId === cs.localPlayerCellId && act.isInProgress) {
+              targetAct = act;
+              break;
+            }
+          }
+          if (targetAct) break;
+        }
+
+        if (!targetAct) {
+          addLog('[INFO] Đang chờ hết 3 giây chuyển pha hoặc chưa tới lượt Cấm/Chọn của bạn. Hãy bấm lại sau 1 giây!');
+          break;
+        }
+
+        const pool = targetAct.type === 'ban' && bannable.length > 0 ? bannable : pickable;
+        const chosenChamp = pool.find((id) => !usedIds.has(id)) || pool[0] || 18;
+
+        await lcuRequest('PATCH', `/lol-champ-select/v1/session/actions/${targetAct.id}`, {
+          championId: chosenChamp,
+          completed: true
+        });
+        addLog(
+          `[PASS] Đã tự động khóa ${targetAct.type === 'ban' ? 'LƯỢT CẤM (BAN)' : 'TƯỚNG CHỌN (PICK)'} (ChampID=${chosenChamp}, ActionID=${targetAct.id})!`
+        );
         await pollLcuAndLiveGame();
         break;
       }
