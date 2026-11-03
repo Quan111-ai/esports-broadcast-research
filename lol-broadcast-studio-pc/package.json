@@ -1,0 +1,14 @@
+{
+  "name": "lol-broadcast-studio-pc",
+  "version": "1.0.0",
+  "description": "Ultra-Lightweight LoL Esports Broadcast Studio & iPad Director Controller (Apple Liquid Glass UI + Official Riot LCU/2999 Connector)",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "node server.js --open-pc-app",
+    "server": "node server.js",
+    "electron": "electron ."
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

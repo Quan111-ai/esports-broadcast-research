@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>LoL Broadcast Studio PC — Apple Liquid Glass Edition (LCK / Worlds Director)</title>
+  <link rel="stylesheet" href="/liquid-glass.css" />
+</head>
+<body>
+  <!-- SVG Optical Refraction & Chromatic Aberration Filter (Adapted from liquid-glass-react) -->
+  <svg style="position: absolute; width: 0; height: 0; pointer-events: none;" aria-hidden="true">
+    <defs>
+      <filter id="apple-liquid-glass-filter" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="2" seed="7" result="NOISE_MAP" />
+        <feGaussianBlur in="NOISE_MAP" stdDeviation="2.5" result="SMOOTH_LENS_MAP" />
+        <feDisplacementMap in="SourceGraphic" in2="SMOOTH_LENS_MAP" scale="11" xChannelSelector="R" yChannelSelector="G" result="REFRACTED" />
+        <feComposite in="REFRACTED" in2="SourceGraphic" operator="atop" />
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Ambient Light Orbs for Liquid Glass Specular Refraction -->
+  <div class="ambient-canvas">
+    <div class="ambient-orb blue"></div>
+    <div class="ambient-orb red"></div>
+    <div class="ambient-orb purple"></div>
+  </div>
+
+  <!-- Main Application Root -->
+  <div id="app" class="app-shell"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

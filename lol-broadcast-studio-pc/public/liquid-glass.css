@@ -1,0 +1,972 @@
+/* ==========================================================================
+   APPLE LIQUID GLASS UI ENGINE + RCVolus LOL PICK/BAN & LCK SPECTATOR HUD
+   Adapted from:
+     1. liquid-glass-react (Optical SVG Refraction, Chromatic Aberration, Fresnel Rim)
+     2. RCVolus/lol-pick-ban-ui (layout-volu-europe Picks, Bans, Timer, Team Score)
+   ========================================================================== */
+
+:root {
+  --bg-deep: #060913;
+  --glass-surface: rgba(255, 255, 255, 0.075);
+  --glass-surface-elevated: rgba(255, 255, 255, 0.12);
+  --glass-surface-active: rgba(56, 189, 248, 0.22);
+  --glass-border-top: rgba(255, 255, 255, 0.44);
+  --glass-border-side: rgba(255, 255, 255, 0.16);
+  --glass-border-bottom: rgba(255, 255, 255, 0.08);
+  --blue-team: #0ea5e9;
+  --blue-glow: rgba(14, 165, 233, 0.45);
+  --red-team: #f43f5e;
+  --red-glow: rgba(244, 63, 94, 0.45);
+  --gold-accent: #fbbf24;
+  --baron-purple: #a855f7;
+  --emerald-ok: #10b981;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(circle at 18% 18%, #132347 0%, #070b16 48%, #04060c 100%);
+  color: var(--text-main);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+}
+
+/* Dynamic Ambient Orbs behind Apple Liquid Glass to create authentic refraction */
+.ambient-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(85px);
+  opacity: 0.42;
+  transform: translateZ(0);
+  animation: floatOrb 18s infinite alternate ease-in-out;
+}
+
+.ambient-orb.blue {
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, #0284c7, transparent 70%);
+  top: -120px;
+  left: -80px;
+}
+
+.ambient-orb.red {
+  width: 540px;
+  height: 540px;
+  background: radial-gradient(circle, #e11d48, transparent 70%);
+  bottom: -140px;
+  right: -90px;
+  animation-delay: -6s;
+}
+
+.ambient-orb.purple {
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, #7c3aed, transparent 70%);
+  top: 36%;
+  left: 42%;
+  opacity: 0.25;
+  animation-delay: -11s;
+}
+
+@keyframes floatOrb {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(38px, -28px, 0) scale(1.08); }
+}
+
+/* ==========================================================================
+   CORE APPLE LIQUID GLASS MATERIAL (4-Layer Specular + SVG Refraction)
+   ========================================================================== */
+.liquid-glass {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(255, 255, 255, 0.09) 100%
+  );
+  backdrop-filter: url(#apple-liquid-glass-filter) blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-top: 1px solid var(--glass-border-top);
+  border-left: 1px solid var(--glass-border-side);
+  border-right: 1px solid var(--glass-border-side);
+  border-bottom: 1px solid var(--glass-border-bottom);
+  box-shadow:
+    0 16px 38px -8px rgba(0, 0, 0, 0.55),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -1px 2px 0 rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  transform: translateZ(0);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.18s ease,
+              background 0.18s ease,
+              border-color 0.18s ease;
+}
+
+.liquid-glass-pill {
+  position: relative;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  backdrop-filter: blur(20px) saturate(185%);
+  -webkit-backdrop-filter: blur(20px) saturate(185%);
+  border-top: 1px solid rgba(255, 255, 255, 0.45);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.38),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.liquid-glass-pill:hover,
+.liquid-btn:hover {
+  transform: translateY(-1.5px) scale(1.01);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.23) 0%,
+    rgba(255, 255, 255, 0.10) 100%
+  );
+  border-top-color: rgba(255, 255, 255, 0.72);
+}
+
+.liquid-glass-pill:active,
+.liquid-btn:active {
+  transform: translateY(0.5px) scale(0.985);
+}
+
+.liquid-glass-pill.active,
+.liquid-btn.active {
+  background: linear-gradient(
+    135deg,
+    rgba(14, 165, 233, 0.38) 0%,
+    rgba(56, 189, 248, 0.18) 100%
+  );
+  border-color: rgba(125, 211, 252, 0.85);
+  box-shadow:
+    0 0 24px rgba(14, 165, 233, 0.42),
+    inset 0 1px 2px rgba(255, 255, 255, 0.65);
+}
+
+.liquid-btn.red-active {
+  background: linear-gradient(
+    135deg,
+    rgba(244, 63, 94, 0.42) 0%,
+    rgba(225, 29, 72, 0.2) 100%
+  );
+  border-color: rgba(253, 164, 175, 0.85);
+  box-shadow:
+    0 0 24px rgba(244, 63, 94, 0.45),
+    inset 0 1px 2px rgba(255, 255, 255, 0.65);
+}
+
+/* ==========================================================================
+   APP SHELL & TOP NAVIGATION BAR
+   ========================================================================== */
+.app-shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  padding: 12px 16px;
+  gap: 12px;
+}
+
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  border-radius: 999px;
+  min-height: 58px;
+}
+
+.brand-cluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-badge {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  box-shadow: 0 0 16px rgba(14, 165, 233, 0.5);
+}
+
+.brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.view-switcher {
+  display: flex;
+  gap: 8px;
+}
+
+.view-switcher button {
+  padding: 7px 15px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+}
+
+.status-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.status-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 11px;
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(52, 211, 153, 0.55);
+  color: #6ee7b7;
+}
+
+/* ==========================================================================
+   MAIN WORKSPACE GRID (STUDIO SPLIT / FULL VIEW MODES)
+   ========================================================================== */
+.workspace-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 510px 1fr;
+  gap: 14px;
+  min-height: 0;
+}
+
+.workspace-grid.mode-director {
+  grid-template-columns: 1fr;
+}
+
+.workspace-grid.mode-overlay169,
+.workspace-grid.mode-overlay916 {
+  grid-template-columns: 1fr;
+}
+
+/* ==========================================================================
+   LEFT PANE: DIRECTOR TOUCH DECK (4 CORE BIG-TOURNAMENT OPERATION GROUPS)
+   ========================================================================== */
+.director-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.section-card {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bae6fd;
+}
+
+.section-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.btn-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+}
+
+.btn-row-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.btn-row-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+}
+
+.liquid-btn {
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.04));
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.liquid-btn small {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* 10-Position Camera Switcher Grid (Blue 1..5 vs Red Q..T) */
+.positions-matrix {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.team-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.team-col-header {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.team-col-header.blue {
+  background: rgba(14, 165, 233, 0.2);
+  color: #7dd3fc;
+  border-left: 3px solid var(--blue-team);
+}
+
+.team-col-header.red {
+  background: rgba(244, 63, 94, 0.2);
+  color: #fda4af;
+  border-left: 3px solid var(--red-team);
+}
+
+.pos-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.pos-card:hover {
+  background: rgba(255, 255, 255, 0.13);
+  transform: translateX(2px);
+}
+
+.pos-card.selected-blue {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.36), rgba(14, 165, 233, 0.12));
+  border-color: #38bdf8;
+  box-shadow: 0 0 18px rgba(14, 165, 233, 0.4);
+}
+
+.pos-card.selected-red {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.36), rgba(244, 63, 94, 0.12));
+  border-color: #fb7185;
+  box-shadow: 0 0 18px rgba(244, 63, 94, 0.4);
+}
+
+.pos-card.ai-hotspot {
+  animation: pulseHotspot 1.3s infinite alternate;
+}
+
+@keyframes pulseHotspot {
+  0% { box-shadow: 0 0 0px rgba(251, 191, 36, 0.2); }
+  100% { box-shadow: 0 0 16px rgba(251, 191, 36, 0.85); border-color: #fbbf24; }
+}
+
+.pos-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.pos-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.pos-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pos-role-tag {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+}
+
+.pos-sub-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* AI Combat Alert Banner */
+.ai-alert-banner {
+  padding: 8px 11px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(239, 68, 68, 0.18));
+  border: 1px solid rgba(251, 191, 36, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   RIGHT PANE: LIVE BROADCAST OUTPUTS (16:9 LCK/WORLDS + 9:16 TIKTOK)
+   ========================================================================== */
+.broadcast-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.monitors-row {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 270px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.monitors-row.single-169 {
+  grid-template-columns: 1fr;
+}
+
+.monitors-row.single-916 {
+  grid-template-columns: 380px;
+  justify-content: center;
+}
+
+/* 16:9 Broadcast Stage */
+.stage-169 {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #050811;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Simulated Spectator 3D Summoner's Rift Canvas Layer */
+.rift-map-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(16, 185, 129, 0.16), transparent 55%),
+    radial-gradient(circle at 30% 30%, rgba(14, 165, 233, 0.22), transparent 50%),
+    radial-gradient(circle at 72% 68%, rgba(244, 63, 94, 0.22), transparent 50%),
+    linear-gradient(135deg, #0b192c 0%, #091e26 48%, #1a1429 100%);
+  z-index: 0;
+  transition: filter 0.35s ease;
+}
+
+.rift-map-backdrop.fog-blue {
+  box-shadow: inset 0 0 130px rgba(14, 165, 233, 0.45);
+}
+
+.rift-map-backdrop.fog-red {
+  box-shadow: inset 0 0 130px rgba(244, 63, 94, 0.45);
+}
+
+/* Top Scoreboard HUD (LCK / Worlds Liquid Glass Bar) */
+.hud-top-wrapper {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 10px;
+  gap: 6px;
+}
+
+.hud-top-bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 86%;
+  max-width: 920px;
+  padding: 8px 20px;
+  border-radius: 999px;
+}
+
+.hud-team-side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hud-team-side.red {
+  justify-content: flex-end;
+}
+
+.hud-team-code {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.hud-team-code.blue { color: #38bdf8; }
+.hud-team-code.red { color: #fb7185; }
+
+.hud-series-boxes {
+  display: flex;
+  gap: 4px;
+}
+
+.series-dot {
+  width: 9px;
+  height: 16px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.series-dot.won-blue { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+.series-dot.won-red { background: #fb7185; box-shadow: 0 0 8px #fb7185; }
+
+.hud-stat-pill {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hud-center-kills {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px;
+}
+
+.kill-num {
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.kill-num.blue { color: #38bdf8; }
+.kill-num.red { color: #fb7185; }
+
+.game-clock-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-clock {
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.gold-diff-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fde047;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+}
+
+/* Sub-bars: Baron Power Play & Fearless Draft Strip */
+.hud-sub-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.baron-powerplay-pill {
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.42), rgba(88, 28, 135, 0.42));
+  border: 1px solid rgba(216, 180, 254, 0.65);
+  font-size: 11px;
+  font-weight: 800;
+  color: #f3e8ff;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.45);
+}
+
+.dragon-timer-pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+/* Middle Interactive Spectator Overview Arena */
+.spectator-center-arena {
+  position: relative;
+  z-index: 4;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  min-height: 0;
+}
+
+/* Left & Right 5v5 Side Frames */
+.side-team-frames {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 170px;
+}
+
+.side-player-frame {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+}
+
+.side-player-frame.focused {
+  border-color: #fbbf24;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.45);
+}
+
+.side-champ-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+}
+
+.hp-bar-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 3px;
+}
+
+.hp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+/* Center Tactical Map Overview & Camera Focus Reticle */
+.tactical-overview-box {
+  position: relative;
+  width: 260px;
+  height: 220px;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.14) 0%, rgba(15, 23, 42, 0.65) 50%, rgba(244, 63, 94, 0.14) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+
+.map-lane-diagonal {
+  position: absolute;
+  inset: 16px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+.map-token {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  transition: left 0.8s ease, top 0.8s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.map-token.blue { border-color: #38bdf8; box-shadow: 0 0 8px #0ea5e9; }
+.map-token.red { border-color: #fb7185; box-shadow: 0 0 8px #f43f5e; }
+.map-token.active-cam {
+  transform: scale(1.38);
+  border-color: #fbbf24;
+  box-shadow: 0 0 16px #fbbf24;
+  z-index: 10;
+}
+
+/* Bottom Center Director Dock (10-Player Table / 1v1 Lane Matchup / Gold Graph) */
+.hud-bottom-dock {
+  position: relative;
+  z-index: 5;
+  margin: 0 auto 10px auto;
+  width: 92%;
+  max-width: 960px;
+  padding: 10px 16px;
+  border-radius: 18px;
+  min-height: 112px;
+}
+
+.matchup-1v1-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+}
+
+.matchup-Fighter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.matchup-Fighter.red {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.matchup-portrait {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+}
+
+.items-strip {
+  display: flex;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.item-slot-img {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+/* ==========================================================================
+   CLONED RCVOLUS PICK & BAN DRAFT SCENE (LCK / LEC LIQUID GLASS EDITION)
+   ========================================================================== */
+.draft-scene-container {
+  position: relative;
+  z-index: 5;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+
+.fearless-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin: 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.fearless-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  filter: grayscale(65%);
+}
+
+.fearless-chip img {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+.draft-columns-grid {
+  display: grid;
+  grid-template-columns: 1fr 190px 1fr;
+  gap: 14px;
+  align-items: center;
+  my: auto;
+}
+
+.draft-picks-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.draft-pick-card {
+  position: relative;
+  height: 190px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: #0f172a;
+}
+
+.draft-pick-card img.splash {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.draft-pick-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(4, 7, 17, 0.92) 10%, transparent 65%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 8px;
+}
+
+.draft-bans-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ban-square {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  position: relative;
+}
+
+.ban-square img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(80%);
+}
+
+/* 9:16 TikTok Vertical Broadcast Stage */
+.stage-916 {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0b1528 0%, #091d26 52%, #191024 100%);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+/* Instant Replay 15s PiP Floating Window */
+.replay-pip-badge {
+  position: absolute;
+  top: 76px;
+  right: 20px;
+  z-index: 25;
+  width: 240px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1.5px solid #fb7185;
+  background: rgba(15, 23, 42, 0.88);
+  box-shadow: 0 0 28px rgba(244, 63, 94, 0.6);
+}
+
+/* Technical Pause Full Overlay */
+.pause-modal-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: rgba(6, 9, 19, 0.78);
+  backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

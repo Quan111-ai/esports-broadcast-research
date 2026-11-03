@@ -3,4 +3,6 @@ __pycache__/
 .agents/
 .DS_Store
 node_modules/
+**/node_modules/
+reference_templates/
 dist/
