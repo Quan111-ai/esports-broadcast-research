@@ -1,19 +1,23 @@
 /**
- * Electron Desktop Shell for LoL Broadcast Studio PC
- * Cloned & Upgraded from RCVolus/lol-pick-ban-ui electron-main.js
+ * Electron Native Desktop Shell for LoL Broadcast Studio PC
  */
 const { app, BrowserWindow } = require('electron');
+
+// Start local backend engine (handles EADDRINUSE safely if already running)
 require('./server.js');
 
-app.whenReady().then(() => {
-  const win = new BrowserWindow({
+let mainWindow = null;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
     width: 1640,
     height: 960,
-    minWidth: 1280,
-    minHeight: 760,
-    backgroundColor: '#070a12',
+    minWidth: 1200,
+    minHeight: 720,
+    backgroundColor: '#060913',
     darkTheme: true,
     center: true,
+    show: true,
     autoHideMenuBar: true,
     title: 'LoL Broadcast Studio PC — Apple Liquid Glass Edition (LCK / Worlds Director)',
     webPreferences: {
@@ -22,5 +26,29 @@ app.whenReady().then(() => {
     }
   });
 
-  win.loadURL('http://localhost:3080');
+  mainWindow.loadURL('http://localhost:3080');
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.setAlwaysOnTop(true);
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setAlwaysOnTop(false);
+      }
+    }, 1000);
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+    app.quit();
+  });
+}
+
+app.whenReady().then(() => {
+  setTimeout(createWindow, 200);
+});
+
+app.on('window-all-closed', () => {
+  app.quit();
 });

@@ -846,8 +846,14 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Native PC Desktop Window Launcher (Uses Microsoft Edge WebView2 / Chrome --app frameless native window)
+// Native PC Desktop Window Launcher (Prefers Real Electron Binary, falls back to Isolated Edge App Mode)
 function launchNativePcWindow(url) {
+  const electronBin = path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe');
+  if (fs.existsSync(electronBin)) {
+    exec(`"${electronBin}" "${__dirname}"`);
+    return true;
+  }
+  const userDataDir = path.join(os.tmpdir(), 'LoLBroadcastStudioPC_Profile');
   const edgePaths = [
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
@@ -855,13 +861,24 @@ function launchNativePcWindow(url) {
   ];
   for (const bin of edgePaths) {
     if (fs.existsSync(bin)) {
-      exec(`"${bin}" --app="${url}" --window-size=1640,960`);
+      exec(`"${bin}" --user-data-dir="${userDataDir}" --new-window --app="${url}" --window-size=1640,960`);
       return true;
     }
   }
   exec(`start "" "${url}"`);
   return false;
 }
+
+httpServer.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.log(`[INFO] Server is already running on http://localhost:${PORT}`);
+    if (process.argv.includes('--open-pc-app')) {
+      launchNativePcWindow(`http://localhost:${PORT}`);
+    }
+  } else {
+    console.error('[ERROR] Server error:', err);
+  }
+});
 
 httpServer.listen(PORT, '0.0.0.0', () => {
   const lanIp = getLanIp();
